@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30 दिवस बचत नोंदवही</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:"Noto Sans Devanagari","Arial",sans-serif;
+  background:#f5f7fb;
+  color:#222;
+}
+.container{max-width:1500px;margin:auto;padding:18px}
+h1{text-align:center;margin:5px 0 18px;font-size:32px}
+.top{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px
+}
+.card{
+  background:white;border:1px solid #d7dce5;border-radius:10px;
+  padding:16px;text-align:center;box-shadow:0 2px 8px #00000010
+}
+.card b{display:block;font-size:18px;margin-bottom:7px}
+.card span{font-size:22px;font-weight:700}
+.controls{
+  background:white;padding:14px;border-radius:10px;margin-bottom:15px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center
+}
+input,button{font:inherit}
+input[type=text]{padding:10px;border:1px solid #bbb;border-radius:6px}
+button{
+  padding:10px 15px;border:0;border-radius:6px;cursor:pointer;
+  background:#222;color:white
+}
+button.secondary{background:#777}
+button.danger{background:#b3261e}
+.table-wrap{overflow:auto;background:white;border-radius:10px;border:1px solid #bbb}
+table{border-collapse:collapse;min-width:1450px;width:100%}
+th,td{border:1px solid #bbb;text-align:center;padding:5px}
+th{background:#f0f2f5;position:sticky;top:0;z-index:2;font-size:13px}
+th.name,td.name{position:sticky;left:0;background:white;z-index:3;min-width:170px}
+th.no,td.no{position:sticky;left:0;background:#f0f2f5;z-index:4;min-width:48px}
+td.name{text-align:left}
+.day{min-width:48px}
+.pay{
+  width:25px;height:25px;accent-color:#198754;cursor:pointer;
+}
+.paid{background:#e7f6ed}
+.total{font-weight:bold;min-width:90px}
+.bottom{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:18px
+}
+.summary{font-size:21px;font-weight:bold}
+.note{font-size:14px;color:#555}
+@media(max-width:700px){
+ h1{font-size:24px}.top,.bottom{grid-template-columns:1fr}
+ .container{padding:8px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>३० दिवस बचत नोंदवही</h1>
+
+  <div class="top">
+    <div class="card"><b>एकूण सदस्य</b><span id="memberCount">२० जण</span></div>
+    <div class="card"><b>कालावधी</b><span>३० दिवस</span></div>
+    <div class="card"><b>प्रति दिवस रक्कम</b><span>₹२८</span></div>
+  </div>
+
+  <div class="controls">
+    <input id="nameInput" type="text" placeholder="सदस्याचे नाव">
+    <button onclick="addMember()">+ सदस्य जोडा</button>
+    <button class="secondary" onclick="markToday()">आजचा दिवस Tick करा</button>
+    <button class="secondary" onclick="window.print()">Print</button>
+    <button class="danger" onclick="resetAll()">सर्व डेटा Reset</button>
+    <span class="note">आजची तारीख: <b id="todayText"></b></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="no">क्र. नं.</th>
+          <th class="name">नाव</th>
+          <script>
+            for(let d=1;d<=30;d++) document.write(`<th class="day">दिवस<br>${d}</th>`);
+          </script>
+          <th class="total">एकूण (₹)</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="bottom">
+    <div class="card">
+      <b>प्रति व्यक्ती एकूण बचत</b>
+      <div class="summary">₹<span id="personMax">840</span></div>
+      <div class="note">(₹28 × 30 दिवस)</div>
+    </div>
+    <div class="card">
+      <b>एकूण बचत</b>
+      <div class="summary">₹<span id="grandTotal">0</span></div>
+      <div class="note">सर्व सदस्यांची जमा रक्कम</div>
+    </div>
+    <div class="card">
+      <b>टीप</b>
+      <div class="note">आज पैसे मिळाल्यावर "आजचा दिवस Tick करा" वापरा.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AMOUNT=28, DAYS=30;
+let members=JSON.parse(localStorage.getItem("savingMembers")||"[]");
+let payments=JSON.parse(localStorage.getItem("savingPayments")||"{}");
+
+function save(){
+  localStorage.setItem("savingMembers",JSON.stringify(members));
+  localStorage.setItem("savingPayments",JSON.stringify(payments));
+}
+
+function toMarathi(n){
+  return String(n).replace(/\d/g,d=>"०१२३४५६७८९"[d]);
+}
+
+function render(){
+  const tbody=document.getElementById("tbody");
+  tbody.innerHTML="";
+  members.forEach((name,i)=>{
+    let tr=document.createElement("tr");
+    tr.innerHTML=`<td class="no">${toMarathi(i+1)}.</td>
+                  <td class="name">${escapeHtml(name)}</td>`;
+    for(let d=1;d<=DAYS;d++){
+      const key=i+"-"+d;
+      const checked=!!payments[key];
+      tr.innerHTML+=`<td class="${checked?'paid':''}">
+        <input class="pay" type="checkbox" ${checked?'checked':''}
+          onchange="togglePayment(${i},${d},this.checked)">
+      </td>`;
+    }
+    const total=(DAYS>0?Object.keys(payments).filter(k=>k.startsWith(i+"-")&&payments[k]).length:0)*AMOUNT;
+    tr.innerHTML+=`<td class="total">₹${total}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("memberCount").textContent=toMarathi(members.length)+" जण";
+  updateGrandTotal();
+}
+
+function togglePayment(i,d,checked){
+  payments[i+"-"+d]=checked;
+  save(); render();
+}
+
+function addMember(){
+  const input=document.getElementById("nameInput");
+  const name=input.value.trim();
+  if(!name){alert("कृपया नाव टाका.");return;}
+  if(members.length>=20){alert("या फॉर्ममध्ये जास्तीत जास्त 20 सदस्य ठेवले आहेत.");return;}
+  members.push(name);
+  input.value="";
+  save();render();
+}
+
+function markToday(){
+  const day=new Date().getDate();
+  if(day<1 || day>DAYS){
+    alert("आजची तारीख 1 ते 30 मध्ये नाही.");
+    return;
+  }
+  members.forEach((_,i)=>payments[i+"-"+day]=true);
+  save();render();
+  alert("आजचा दिवस Tick केला आहे.");
+}
+
+function updateGrandTotal(){
+  let count=0;
+  Object.values(payments).forEach(v=>{if(v)count++});
+  document.getElementById("grandTotal").textContent=(count*AMOUNT).toLocaleString("en-IN");
+}
+
+function resetAll(){
+  if(confirm("सर्व नावे आणि payment data delete करायचा आहे का?")){
+    members=[];payments={};save();render();
+  }
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+const now=new Date();
+document.getElementById("todayText").textContent=
+  toMarathi(now.getDate())+"/"+toMarathi(now.getMonth()+1)+"/"+now.getFullYear();
+
+render();
+</script>
+</body>
+</html>
